@@ -57,19 +57,28 @@ class AccessLog {
     }
 
     /**
-     * Tìm logs theo user_id
+     * Tìm logs theo user_id (không dùng orderBy để tránh cần index)
      */
     static async findByUserId(userId) {
         const db = getDatabase();
         const query = await db.collection(COLLECTION)
             .where('user_id', '==', userId)
-            .orderBy('timestamp', 'desc')
             .get();
         
-        return query.docs.map(doc => ({
+        // Sort trong JavaScript thay vì Firestore
+        const logs = query.docs.map(doc => ({
             log_id: doc.id,
             ...doc.data()
         }));
+        
+        // Sắp xếp theo timestamp giảm dần
+        logs.sort((a, b) => {
+            const timeA = new Date(a.timestamp || 0);
+            const timeB = new Date(b.timestamp || 0);
+            return timeB - timeA; // DESC
+        });
+        
+        return logs;
     }
 
     /**

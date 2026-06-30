@@ -10,8 +10,16 @@
  * Sử dụng fetch API (JavaScript thuần, không cần thư viện bên ngoài)
  */
 
-// --- Cấu hình: URL của Backend ---
-const API_URL = 'http://localhost:5000/api';
+// --- Cấu hình: URL của Backend (tự động nhận diện môi trường) ---
+const API_URL = (() => {
+    const hostname = window.location.hostname;
+    // Nếu chạy localhost → dùng localhost:5000
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:5000/api';
+    }
+    // Nếu chạy trên Render → dùng domain Render
+    return 'https://he-thong-thu-vien-vts.onrender.com/api';
+})();
 
 /**
  * Hàm gọi API tổng quát (GET)

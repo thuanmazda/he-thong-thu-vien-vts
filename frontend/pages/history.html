@@ -537,7 +537,9 @@
             // --- Gọi API ---
             try {
                 const result = await apiGet(`/access/history/${user.id}`);
-                allLogs = result.data || [];
+                
+                // Đảm bảo logs luôn là mảng
+                allLogs = Array.isArray(result.data.logs) ? result.data.logs : [];
 
                 // Cập nhật tổng số
                 document.getElementById('totalBadge').textContent = `📊 Tổng: ${allLogs.length} lượt`;

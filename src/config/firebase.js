@@ -26,29 +26,47 @@ function initializeFirebase() {
             return db;
         }
 
+        let serviceAccount;
+
         // Cách 1: Dùng service account key từ biến môi trường (JSON string)
         if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-                projectId: serviceAccount.project_id
-            });
-            console.log('✅ Firebase initialized from environment variable');
+            console.log('🔑 Đang đọc Firebase credentials từ biến môi trường...');
+            try {
+                serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+                console.log('✅ Đã parse JSON credentials');
+                console.log('   Project ID:', serviceAccount.project_id);
+                console.log('   Client Email:', serviceAccount.client_email);
+            } catch (parseErr) {
+                console.error('❌ Lỗi parse JSON từ FIREBASE_SERVICE_ACCOUNT_KEY:', parseErr.message);
+                throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY không phải là JSON hợp lệ');
+            }
         }
         // Cách 2: Dùng file JSON
         else if (process.env.FIREBASE_KEY_PATH) {
-            const serviceAccount = require(path.resolve(__dirname, '..', '..', process.env.FIREBASE_KEY_PATH));
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-                projectId: serviceAccount.project_id
-            });
-            console.log('✅ Firebase initialized from file:', process.env.FIREBASE_KEY_PATH);
+            console.log('🔑 Đang đọc Firebase credentials từ file:', process.env.FIREBASE_KEY_PATH);
+            const keyPath = path.resolve(__dirname, '..', '..', process.env.FIREBASE_KEY_PATH);
+            serviceAccount = require(keyPath);
+            console.log('✅ Đã đọc file credentials');
+            console.log('   Project ID:', serviceAccount.project_id);
         }
         // Cách 3: Dùng Application Default Credentials (chỉ cho Google Cloud)
         else {
+            console.log('⚠️  Không tìm thấy FIREBASE_SERVICE_ACCOUNT_KEY hoặc FIREBASE_KEY_PATH');
+            console.log('   Sử dụng Application Default Credentials...');
             admin.initializeApp();
             console.log('✅ Firebase initialized with default credentials');
+            db = admin.firestore();
+            console.log('✅ Firestore database connected');
+            return db;
         }
+
+        // Khởi tạo Firebase với service account
+        console.log('🚀 Đang khởi tạo Firebase Admin SDK...');
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            projectId: serviceAccount.project_id
+        });
+        console.log('✅ Firebase Admin SDK đã khởi tạo');
 
         db = admin.firestore();
         console.log('✅ Firestore database connected');
@@ -57,6 +75,7 @@ function initializeFirebase() {
 
     } catch (err) {
         console.error('❌ Firebase initialization error:', err.message);
+        console.error('   Stack:', err.stack);
         throw err;
     }
 }

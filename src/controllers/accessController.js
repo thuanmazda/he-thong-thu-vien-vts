@@ -41,14 +41,18 @@ async function scanQR(req, res, next) {
         // Lấy log gần nhất của user
         const latestLog = await AccessLog.getLatestLogByUserId(user.id);
         
+        console.log(`[Scan QR] User: ${user.full_name} | Latest log:`, latestLog ? `${latestLog.type} (${latestLog.timestamp})` : 'Chưa có log');
+        
         let logType;
         if (!latestLog) {
             // Chưa có log nào → mặc định là "Vào"
             logType = 'Vào';
+            console.log(`[Scan QR] → Xác định: VÀO (lần đầu tiên)`);
         } else {
             // Nếu log gần nhất là "Vào" → lần này là "Ra"
             // Nếu log gần nhất là "Ra" → lần này là "Vào"
             logType = latestLog.type === 'Vào' ? 'Ra' : 'Vào';
+            console.log(`[Scan QR] → Xác định: ${logType.toUpperCase()} (lần trước là ${latestLog.type})`);
         }
 
         // 3. Tạo log mới

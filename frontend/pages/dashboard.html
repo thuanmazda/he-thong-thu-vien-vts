@@ -360,8 +360,25 @@
             window.location.href = 'login.html';
         }
 
-        // Biến để đảm bảo chỉ khởi tạo QR code 1 lần
-        let qrInitialized = false;
+        /**
+         * Tạo QR Code - luôn xóa sạch container trước khi tạo mới
+         */
+        function generateQRCode(text) {
+            const qrContainer = document.getElementById('qrcode');
+            // Xóa sạch tất cả nội dung cũ (cả canvas và img)
+            while (qrContainer.firstChild) {
+                qrContainer.removeChild(qrContainer.firstChild);
+            }
+            // Tạo QR code mới
+            new QRCode(qrContainer, {
+                text: text,
+                width: 220,
+                height: 220,
+                colorDark: '#1a1a2e',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
 
         async function initDashboard() {
             const loadingState = document.getElementById('loadingState');
@@ -390,18 +407,8 @@
                 document.getElementById('detailPhone').textContent = user.phone_number;
                 document.getElementById('detailCreated').textContent = formatDate(user.created_at);
 
-                // Chỉ tạo QR code 1 lần
-                if (!qrInitialized) {
-                    const qrContainer = document.getElementById('qrcode');
-                    qrContainer.innerHTML = ''; // Xóa nội dung cũ
-                    new QRCode(qrContainer, {
-                        text: user.library_code,
-                        width: 220, height: 220,
-                        colorDark: '#1a1a2e', colorLight: '#ffffff',
-                        correctLevel: QRCode.CorrectLevel.H
-                    });
-                    qrInitialized = true;
-                }
+                // Tạo QR code - luôn xóa sạch container trước khi tạo
+                generateQRCode(user.library_code);
 
                 loadingState.style.display = 'none';
                 dashboardContent.style.display = 'flex';
@@ -417,18 +424,8 @@
                     document.getElementById('detailPhone').textContent = localUser.phone_number || '---';
                     document.getElementById('detailCreated').textContent = '---';
 
-                    // Chỉ tạo QR code 1 lần
-                    if (!qrInitialized) {
-                        const qrContainer = document.getElementById('qrcode');
-                        qrContainer.innerHTML = ''; // Xóa nội dung cũ
-                        new QRCode(qrContainer, {
-                            text: localUser.library_code,
-                            width: 220, height: 220,
-                            colorDark: '#1a1a2e', colorLight: '#ffffff',
-                            correctLevel: QRCode.CorrectLevel.H
-                        });
-                        qrInitialized = true;
-                    }
+                    // Tạo QR code - luôn xóa sạch container trước khi tạo
+                    generateQRCode(localUser.library_code);
 
                     loadingState.style.display = 'none';
                     dashboardContent.style.display = 'flex';

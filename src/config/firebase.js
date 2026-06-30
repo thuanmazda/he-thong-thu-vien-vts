@@ -15,10 +15,17 @@ require('dotenv').config({ path: path.resolve(__dirname, '..', '..', '.env') });
 let db;
 
 /**
- * Khởi tạo Firebase Admin SDK
+ * Khởi tạo Firebase Admin SDK (chỉ khởi tạo 1 lần)
  */
 function initializeFirebase() {
     try {
+        // Kiểm tra xem Firebase đã được khởi tạo chưa
+        if (admin.apps.length > 0) {
+            console.log('ℹ️  Firebase đã được khởi tạo trước đó');
+            db = admin.firestore();
+            return db;
+        }
+
         // Cách 1: Dùng service account key từ biến môi trường (JSON string)
         if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
             const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);

@@ -10,7 +10,7 @@ const router = express.Router();
 const accessController = require('../controllers/accessController');
 
 // POST /api/access/scan - Xử lý quét mã QR
-router.post('/scan', accessController.scan);
+router.post('/scan', accessController.scanQR);
 
 // GET /api/access/history/:user_id - Lấy lịch sử ra vào của user
 router.get('/history/:user_id', accessController.getHistory);

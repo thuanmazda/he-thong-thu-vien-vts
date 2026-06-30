@@ -57,9 +57,9 @@ async function getStats(req, res, next) {
                     count: currentlyInside.length,
                     users: currentlyInside.map(u => ({
                         id: u.user_id,
-                        name: u.full_name,
-                        library_code: u.library_code,
-                        class_name: u.class_name,
+                        name: u.user_name,
+                        library_code: u.library_code || '---',
+                        class_name: u.class_name || '---',
                         entry_time: u.timestamp
                     }))
                 },
@@ -70,9 +70,9 @@ async function getStats(req, res, next) {
                 average_duration: avgDuration,
                 longest_session: longestSession ? {
                     user_id: longestSession.user_id,
-                    name: longestSession.full_name,
-                    library_code: longestSession.library_code,
-                    class_name: longestSession.class_name,
+                    name: longestSession.user_name || 'Unknown',
+                    library_code: longestSession.library_code || '---',
+                    class_name: longestSession.class_name || '---',
                     entry_time: longestSession.entry_time,
                     exit_time: longestSession.exit_time,
                     duration_minutes: longestSession.duration_minutes

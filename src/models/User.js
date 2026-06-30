@@ -1,110 +1,253 @@
 /**
- * Model User - Tương tác với bảng Users trong database (dùng sql.js)
+ * Model User - Tương tác với Firestore Collection "users"
+ * 
+ * Collection: users
+ * Document ID: Tự động (Firestore)
+ * Fields:
+ *   - library_code: string (UNIQUE)
+ *   - full_name: string
+ *   - email: string (UNIQUE)
+ *   - phone_number: string
+ *   - password_hash: string
+ *   - role: string ('student' | 'admin')
+ *   - school_year: string | null
+ *   - class_name: string | null
+ *   - created_at: timestamp
  */
 
-const { getDatabase, saveDatabase } = require('../config/database');
+const { getDatabase } = require('../config/firebase');
+const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
+
+const SALT_ROUNDS = 10;
+const COLLECTION = 'users';
+
+/**
+ * Tạo library_code ngẫu nhiên (LIB-XXXXXX)
+ */
+function generateLibraryCode() {
+    const uuid = uuidv4().replace(/-/g, '').toUpperCase();
+    return `LIB-${uuid.substring(0, 6)}`;
+}
 
 class User {
-    static _queryAll(stmt, params = []) {
-        if (params.length > 0) stmt.bind(params);
-        const rows = [];
-        while (stmt.step()) {
-            rows.push(stmt.getAsObject());
+    /**
+     * Tạo user mới
+     */
+    static async create(data) {
+        const db = getDatabase();
+        
+        // Kiểm tra email đã tồn tại
+        const emailQuery = await db.collection(COLLECTION)
+            .where('email', '==', data.email)
+            .limit(1)
+            .get();
+        
+        if (!emailQuery.empty) {
+            throw new Error('Email này đã được đăng ký');
         }
-        stmt.free();
-        return rows;
-    }
 
-    static _queryOne(stmt, params = []) {
-        if (params.length > 0) stmt.bind(params);
-        let row = null;
-        if (stmt.step()) {
-            row = stmt.getAsObject();
+        // Tạo library_code unique
+        let library_code;
+        let isUnique = false;
+        let attempts = 0;
+        
+        while (!isUnique && attempts < 10) {
+            library_code = generateLibraryCode();
+            const codeQuery = await db.collection(COLLECTION)
+                .where('library_code', '==', library_code)
+                .limit(1)
+                .get();
+            
+            if (codeQuery.empty) {
+                isUnique = true;
+            }
+            attempts++;
         }
-        stmt.free();
-        return row;
-    }
 
-    static async findById(id) {
-        const db = await getDatabase();
-        const stmt = db.prepare('SELECT * FROM Users WHERE id = ?');
-        return this._queryOne(stmt, [id]);
-    }
+        if (!isUnique) {
+            throw new Error('Không thể tạo mã thẻ duy nhất');
+        }
 
-    static async findByLibraryCode(libraryCode) {
-        const db = await getDatabase();
-        const stmt = db.prepare('SELECT * FROM Users WHERE library_code = ?');
-        return this._queryOne(stmt, [libraryCode]);
-    }
+        // Tạo document
+        const userRef = db.collection(COLLECTION).doc();
+        const userData = {
+            library_code,
+            full_name: data.full_name,
+            email: data.email,
+            phone_number: data.phone_number,
+            password_hash: data.password_hash,
+            role: data.role || 'student',
+            school_year: data.school_year || null,
+            class_name: data.class_name || null,
+            created_at: new Date().toISOString()
+        };
 
-    static async findByEmail(email) {
-        const db = await getDatabase();
-        const stmt = db.prepare('SELECT * FROM Users WHERE email = ?');
-        return this._queryOne(stmt, [email]);
-    }
+        await userRef.set(userData);
 
-    static async findByEmailOrPhone(login) {
-        const db = await getDatabase();
-        const stmt = db.prepare('SELECT * FROM Users WHERE email = ? OR phone_number = ?');
-        return this._queryOne(stmt, [login, login]);
-    }
-
-    static async findAll() {
-        const db = await getDatabase();
-        const stmt = db.prepare(
-            'SELECT id, library_code, full_name, email, phone_number, role, school_year, class_name, created_at FROM Users ORDER BY created_at DESC'
-        );
-        return this._queryAll(stmt);
+        return {
+            id: userRef.id,
+            ...userData
+        };
     }
 
     /**
-     * Tạo user mới - role luôn là 'student', hỗ trợ school_year + class_name
+     * Tìm user theo ID
      */
-    static async create(data) {
-        const db = await getDatabase();
-        const stmt = db.prepare(`
-            INSERT INTO Users (library_code, full_name, email, phone_number, password_hash, role, school_year, class_name)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-        stmt.run([
-            data.library_code,
-            data.full_name,
-            data.email,
-            data.phone_number,
-            data.password_hash,
-            'student',
-            data.school_year || null,
-            data.class_name || null
-        ]);
-        stmt.free();
-        saveDatabase();
+    static async findById(id) {
+        const db = getDatabase();
+        const doc = await db.collection(COLLECTION).doc(id).get();
+        
+        if (!doc.exists) {
+            return null;
+        }
 
-        const idStmt = db.prepare('SELECT MAX(id) as id FROM Users');
-        const result = this._queryOne(idStmt);
-        return this.findById(result.id);
+        return {
+            id: doc.id,
+            ...doc.data()
+        };
     }
 
+    /**
+     * Tìm user theo email
+     */
+    static async findByEmail(email) {
+        const db = getDatabase();
+        const query = await db.collection(COLLECTION)
+            .where('email', '==', email)
+            .limit(1)
+            .get();
+        
+        if (query.empty) {
+            return null;
+        }
+
+        const doc = query.docs[0];
+        return {
+            id: doc.id,
+            ...doc.data()
+        };
+    }
+
+    /**
+     * Tìm user theo library_code
+     */
+    static async findByLibraryCode(libraryCode) {
+        const db = getDatabase();
+        const query = await db.collection(COLLECTION)
+            .where('library_code', '==', libraryCode)
+            .limit(1)
+            .get();
+        
+        if (query.empty) {
+            return null;
+        }
+
+        const doc = query.docs[0];
+        return {
+            id: doc.id,
+            ...doc.data()
+        };
+    }
+
+    /**
+     * Tìm user theo email hoặc phone
+     */
+    static async findByEmailOrPhone(login) {
+        const db = getDatabase();
+        
+        // Thử tìm theo email
+        let query = await db.collection(COLLECTION)
+            .where('email', '==', login)
+            .limit(1)
+            .get();
+        
+        if (!query.empty) {
+            const doc = query.docs[0];
+            return {
+                id: doc.id,
+                ...doc.data()
+            };
+        }
+
+        // Thử tìm theo phone
+        query = await db.collection(COLLECTION)
+            .where('phone_number', '==', login)
+            .limit(1)
+            .get();
+        
+        if (!query.empty) {
+            const doc = query.docs[0];
+            return {
+                id: doc.id,
+                ...doc.data()
+            };
+        }
+
+        return null;
+    }
+
+    /**
+     * Cập nhật thông tin user
+     */
     static async update(id, data) {
-        const db = await getDatabase();
-        const fields = Object.keys(data);
-        const setClause = fields.map(f => `${f} = ?`).join(', ');
-        const values = fields.map(f => data[f]);
+        const db = getDatabase();
+        const userRef = db.collection(COLLECTION).doc(id);
+        
+        // Kiểm tra user tồn tại
+        const doc = await userRef.get();
+        if (!doc.exists) {
+            throw new Error('Không tìm thấy người dùng');
+        }
 
-        const stmt = db.prepare(`UPDATE Users SET ${setClause} WHERE id = ?`);
-        stmt.run([...values, id]);
-        stmt.free();
-        saveDatabase();
+        // Cập nhật
+        await userRef.update(data);
 
-        return this.findById(id);
+        // Trả về user mới
+        const updatedDoc = await userRef.get();
+        return {
+            id: updatedDoc.id,
+            ...updatedDoc.data()
+        };
     }
 
+    /**
+     * Lấy tất cả users (cho admin)
+     */
+    static async findAll() {
+        const db = getDatabase();
+        const snapshot = await db.collection(COLLECTION).get();
+        
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+    }
+
+    /**
+     * Xóa user
+     */
     static async delete(id) {
-        const db = await getDatabase();
-        const stmt = db.prepare('DELETE FROM Users WHERE id = ?');
-        stmt.run([id]);
-        stmt.free();
-        saveDatabase();
+        const db = getDatabase();
+        const userRef = db.collection(COLLECTION).doc(id);
+        
+        // Kiểm tra user tồn tại
+        const doc = await userRef.get();
+        if (!doc.exists) {
+            throw new Error('Không tìm thấy người dùng');
+        }
+
+        await userRef.delete();
         return true;
+    }
+
+    /**
+     * Đếm tổng số users
+     */
+    static async count() {
+        const db = getDatabase();
+        const snapshot = await db.collection(COLLECTION).get();
+        return snapshot.size;
     }
 }
 

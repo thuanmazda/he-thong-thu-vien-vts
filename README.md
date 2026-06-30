@@ -1,6 +1,6 @@
 # 📚 Hệ thống kiểm soát ra vào thư viện bằng mã QR
 
-Hệ thống quản lý ra/vào thư viện sử dụng mã QR, được xây dựng với **Node.js + Express (Backend)** và **HTML/CSS/JS thuần (Frontend)**.
+Hệ thống quản lý ra/vào thư viện sử dụng mã QR, được xây dựng với **Node.js + Express (Backend)** và **HTML/CSS/JS thuần (Frontend)**. Database sử dụng **Firebase Firestore** (NoSQL cloud database).
 
 ---
 
@@ -13,13 +13,21 @@ cd he-thong-thu-vien-vts
 npm install
 ```
 
-### 2. Khởi tạo Database
+### 2. Cấu hình Firebase
 ```bash
-npm run init-db
-```
-→ Tạo file `database/library.db` với 3 bảng + dữ liệu mẫu.
+# Copy file .env.example thành .env
+cp .env.example .env
 
-### 3. Chạy Server
+# Chỉnh sửa .env, thêm FIREBASE_SERVICE_ACCOUNT_KEY hoặc FIREBASE_KEY_PATH
+# Xem hướng dẫn chi tiết trong FIREBASE_SETUP.md
+```
+
+### 3. Seed dữ liệu mẫu
+```bash
+npm run seed-firebase
+```
+
+### 4. Chạy Server
 ```bash
 npm start
 ```
@@ -31,7 +39,7 @@ npm start
 
 | Vai trò | Email | Mật khẩu | Mô tả |
 |---------|-------|----------|-------|
-| 👑 **Admin** | `admin@vts.edu.vn` | `admin123` | Quét QR, quản lý thành viên, xem thống kê |
+| 👑 **Admin** | `nmthuan03@gmail.com` | `admin123` | Quét QR, quản lý thành viên, xem thống kê |
 | 👥 **Student** | `nguyenvana@example.com` | `123456` | Xem mã QR cá nhân, xem lịch sử |
 
 ---
@@ -79,55 +87,60 @@ npm start
 
 ---
 
-## 🗄️ Database Schema
+## 🗄️ Database Schema (Firestore)
 
-### Bảng Users
-```sql
-- id (PK)
-- library_code (UNIQUE) - Mã thẻ QR
-- full_name
-- email (UNIQUE)
-- phone_number
-- password_hash
-- role ('student' | 'admin')
-- school_year (VD: '2023-2027')
-- class_name (VD: 'ĐT21', 'Cựu')
-- created_at
+### Collection: `users`
+```
+Document ID: Auto-generated
+Fields:
+  - library_code: string (UNIQUE)
+  - full_name: string
+  - email: string (UNIQUE)
+  - phone_number: string
+  - password_hash: string
+  - role: string ('student' | 'admin')
+  - school_year: string | null
+  - class_name: string | null
+  - created_at: timestamp
 ```
 
-### Bảng Devices
-```sql
-- device_id (PK) - VD: GATE-001, GATE-002
-- device_type ('entry' | 'exit' | 'both')
-- status ('active' | 'inactive' | 'maintenance')
+### Collection: `devices`
+```
+Document ID: device_id (VD: GATE-001)
+Fields:
+  - device_id: string
+  - device_type: string ('entry' | 'exit' | 'both')
+  - status: string ('active' | 'inactive' | 'maintenance')
 ```
 
-### Bảng AccessLogs
-```sql
-- log_id (PK)
-- user_id (FK → Users)
-- timestamp
-- device_id (FK → Devices)
+### Collection: `access_logs`
+```
+Document ID: Auto-generated
+Fields:
+  - user_id: string (reference to users)
+  - device_id: string
+  - timestamp: string (ISO format)
 ```
 
 ---
 
 ## 🛠️ Công cụ quản lý
 
-### Nâng quyền Admin
+### Seed dữ liệu mẫu
 ```bash
-# Theo email
+npm run seed-firebase
+```
+
+### Kiểm tra kết nối Firebase
+```bash
+node database/check-firebase.js
+```
+
+### Nâng quyền Admin (Legacy - SQLite)
+```bash
+# Chỉ dùng cho SQLite, với Firebase dùng seed-firebase.js
 node database/set-admin.js admin@vts.edu.vn
-
-# Theo ID
-node database/set-admin.js 1
 ```
-
-### Khởi tạo lại Database
-```bash
-npm run init-db
-```
-⚠️ Lưu ý: Xóa toàn bộ dữ liệu cũ và tạo mới.
 
 ---
 
@@ -161,9 +174,33 @@ localhost:3000
 
 ---
 
+## 🔥 Firebase Setup
+
+Xem hướng dẫn chi tiết trong file **[FIREBASE_SETUP.md](./FIREBASE_SETUP.md)**
+
+### Tóm tắt:
+1. Tạo Firebase project
+2. Tạo Firestore database
+3. Tạo Service Account Key (JSON)
+4. Cấu hình biến môi trường
+5. Chạy `npm run seed-firebase`
+
+---
+
+## 🚀 Deploy lên Render
+
+Xem hướng dẫn chi tiết trong file **[DEPLOY.md](./DEPLOY.md)**
+
+### Lưu ý quan trọng:
+- **Firebase Firestore**: Không bị mất data khi restart (khác SQLite)
+- **Environment Variables**: Cần set `FIREBASE_SERVICE_ACCOUNT_KEY` trên Render
+- **HTTPS**: Render tự động cấp SSL, camera QR hoạt động tốt
+
+---
+
 ## 📝 Ghi chú
 
-- Database sử dụng **SQLite** (file `library.db`)
+- Database: **Firebase Firestore** (NoSQL cloud)
 - Mật khẩu được băm bằng **bcrypt**
 - Phân quyền dựa trên trường `role` trong localStorage
 - Camera QR chỉ hoạt động trên **HTTPS** hoặc **localhost**
@@ -179,6 +216,15 @@ localhost:3000
 ✅ Thống kê thời gian thực  
 ✅ Lịch sử ra vào có bộ lọc  
 ✅ Responsive mobile-first  
+✅ Firebase Firestore (không bị mất data)  
+
+---
+
+## 📚 Tài liệu
+
+- [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) - Hướng dẫn cấu hình Firebase
+- [DEPLOY.md](./DEPLOY.md) - Hướng dẫn deploy lên Render
+- [README.md](./README.md) - Tài liệu chính (file này)
 
 ---
 

@@ -24,13 +24,23 @@ app.use((req, res, next) => {
 });
 
 // --- Serve static files từ thư mục frontend ---
-// Đường dẫn: src/app.js → ../frontend
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 // --- Route mặc định: tự động gửi index.html ---
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
 });
+
+// --- Khởi tạo Firebase Firestore ---
+const { initializeFirebase } = require('./config/firebase');
+let db;
+try {
+    db = initializeFirebase();
+    console.log('✅ Database đã sẵn sàng');
+} catch (err) {
+    console.error('❌ Lỗi khởi tạo database:', err.message);
+    console.log('⚠️  Server sẽ chạy nhưng database không hoạt động');
+}
 
 // --- Routes API ---
 app.use('/api/users', require('./routes/userRoutes'));
@@ -42,7 +52,8 @@ app.get('/api/health', (req, res) => {
     res.json({
         status: 'OK',
         message: 'Hệ thống kiểm soát ra vào thư viện đang hoạt động',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        database: db ? 'Firestore' : 'Not connected'
     });
 });
 

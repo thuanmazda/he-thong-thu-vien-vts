@@ -53,23 +53,9 @@ async function register(req, res, next) {
             return res.status(400).json({ success: false, error: 'Mật khẩu phải có ít nhất 6 ký tự' });
         }
 
-        const existingEmail = await User.findByEmail(email);
-        if (existingEmail) {
-            return res.status(409).json({ success: false, error: 'Email này đã được đăng ký' });
-        }
-
         const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
 
-        let library_code;
-        let isUnique = false;
-        while (!isUnique) {
-            library_code = generateLibraryCode();
-            const exist = await User.findByLibraryCode(library_code);
-            if (!exist) isUnique = true;
-        }
-
         const newUser = await User.create({
-            library_code,
             full_name,
             email,
             phone_number,
@@ -142,12 +128,13 @@ async function login(req, res, next) {
 async function getProfile(req, res, next) {
     try {
         const { id } = req.params;
-        const userId = parseInt(id, 10);
-        if (isNaN(userId)) {
+        
+        // Firestore dùng string ID, không cần parseInt
+        if (!id || typeof id !== 'string') {
             return res.status(400).json({ success: false, error: 'ID người dùng không hợp lệ' });
         }
 
-        const user = await User.findById(userId);
+        const user = await User.findById(id);
         if (!user) {
             return res.status(404).json({ success: false, error: 'Không tìm thấy người dùng' });
         }

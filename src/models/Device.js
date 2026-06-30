@@ -1,141 +1,117 @@
 /**
- * Model Device - Tương tác với bảng Devices trong database (dùng sql.js)
- * Quản lý các thiết bị đọc QR (cổng ra/vào)
+ * Model Device - Tương tác với Firestore Collection "devices"
+ * 
+ * Collection: devices
+ * Document ID: device_id (tự định nghĩa)
+ * Fields:
+ *   - device_type: string ('entry' | 'exit' | 'both')
+ *   - status: string ('active' | 'inactive' | 'maintenance')
  */
 
-const { getDatabase, saveDatabase } = require('../config/database');
+const { getDatabase } = require('../config/firebase');
+
+const COLLECTION = 'devices';
 
 class Device {
     /**
-     * Helper: lấy tất cả dòng từ prepared statement dạng object
+     * Tạo device mới
      */
-    static _queryAll(stmt, params = []) {
-        if (params.length > 0) stmt.bind(params);
-        const rows = [];
-        while (stmt.step()) {
-            rows.push(stmt.getAsObject());
-        }
-        stmt.free();
-        return rows;
-    }
+    static async create(data) {
+        const db = getDatabase();
+        
+        const deviceRef = db.collection(COLLECTION).doc(data.device_id);
+        const deviceData = {
+            device_id: data.device_id,
+            device_type: data.device_type || 'both',
+            status: data.status || 'active'
+        };
 
-    /**
-     * Helper: lấy 1 dòng dạng object
-     */
-    static _queryOne(stmt, params = []) {
-        if (params.length > 0) stmt.bind(params);
-        let row = null;
-        if (stmt.step()) {
-            row = stmt.getAsObject();
-        }
-        stmt.free();
-        return row;
+        await deviceRef.set(deviceData);
+
+        return {
+            device_id: deviceRef.id,
+            ...deviceData
+        };
     }
 
     /**
      * Tìm device theo ID
-     * @param {string} deviceId
-     * @returns {object|null}
      */
     static async findById(deviceId) {
-        const db = await getDatabase();
-        const stmt = db.prepare('SELECT * FROM Devices WHERE device_id = ?');
-        return this._queryOne(stmt, [deviceId]);
+        const db = getDatabase();
+        const doc = await db.collection(COLLECTION).doc(deviceId).get();
+        
+        if (!doc.exists) {
+            return null;
+        }
+
+        return {
+            device_id: doc.id,
+            ...doc.data()
+        };
     }
 
     /**
      * Lấy tất cả devices
-     * @returns {Array}
      */
     static async findAll() {
-        const db = await getDatabase();
-        const stmt = db.prepare('SELECT * FROM Devices ORDER BY device_id');
-        return this._queryAll(stmt);
+        const db = getDatabase();
+        const snapshot = await db.collection(COLLECTION).get();
+        
+        return snapshot.docs.map(doc => ({
+            device_id: doc.id,
+            ...doc.data()
+        }));
     }
 
     /**
-     * Lấy devices theo trạng thái
-     * @param {string} status - 'active' | 'inactive' | 'maintenance'
-     * @returns {Array}
-     */
-    static async findByStatus(status) {
-        const db = await getDatabase();
-        const stmt = db.prepare('SELECT * FROM Devices WHERE status = ?');
-        return this._queryAll(stmt, [status]);
-    }
-
-    /**
-     * Lấy devices theo loại
-     * @param {string} type - 'entry' | 'exit' | 'both'
-     * @returns {Array}
-     */
-    static async findByType(type) {
-        const db = await getDatabase();
-        const stmt = db.prepare('SELECT * FROM Devices WHERE device_type = ?');
-        return this._queryAll(stmt, [type]);
-    }
-
-    /**
-     * Tạo device mới
-     * @param {object} data - { device_id, device_type, status }
-     * @returns {object} Device vừa tạo
-     */
-    static async create(data) {
-        const db = await getDatabase();
-        const stmt = db.prepare(`
-            INSERT INTO Devices (device_id, device_type, status)
-            VALUES (?, ?, ?)
-        `);
-        stmt.run([data.device_id, data.device_type, data.status || 'active']);
-        stmt.free();
-        saveDatabase();
-
-        return this.findById(data.device_id);
-    }
-
-    /**
-     * Cập nhật thông tin device
-     * @param {string} deviceId
-     * @param {object} data - { device_type, status }
-     * @returns {object} Device sau khi cập nhật
+     * Cập nhật device
      */
     static async update(deviceId, data) {
-        const db = await getDatabase();
-        const fields = Object.keys(data);
-        const setClause = fields.map(f => `${f} = ?`).join(', ');
-        const values = fields.map(f => data[f]);
+        const db = getDatabase();
+        const deviceRef = db.collection(COLLECTION).doc(deviceId);
+        
+        // Kiểm tra device tồn tại
+        const doc = await deviceRef.get();
+        if (!doc.exists) {
+            throw new Error('Không tìm thấy thiết bị');
+        }
 
-        const stmt = db.prepare(`UPDATE Devices SET ${setClause} WHERE device_id = ?`);
-        stmt.run([...values, deviceId]);
-        stmt.free();
-        saveDatabase();
+        // Cập nhật
+        await deviceRef.update(data);
 
-        return this.findById(deviceId);
+        // Trả về device mới
+        const updatedDoc = await deviceRef.get();
+        return {
+            device_id: updatedDoc.id,
+            ...updatedDoc.data()
+        };
     }
 
     /**
      * Xóa device
-     * @param {string} deviceId
-     * @returns {boolean}
      */
     static async delete(deviceId) {
-        const db = await getDatabase();
-        const stmt = db.prepare('DELETE FROM Devices WHERE device_id = ?');
-        stmt.run([deviceId]);
-        stmt.free();
-        saveDatabase();
+        const db = getDatabase();
+        const deviceRef = db.collection(COLLECTION).doc(deviceId);
+        
+        // Kiểm tra device tồn tại
+        const doc = await deviceRef.get();
+        if (!doc.exists) {
+            throw new Error('Không tìm thấy thiết bị');
+        }
+
+        await deviceRef.delete();
         return true;
     }
 
     /**
-     * Đếm số devices đang hoạt động
-     * @returns {number}
+     * Đếm tổng số devices
      */
-    static async countActive() {
-        const db = await getDatabase();
-        const stmt = db.prepare("SELECT COUNT(*) as count FROM Devices WHERE status = 'active'");
-        const result = this._queryOne(stmt);
-        return result.count;
+    static async count() {
+        const db = getDatabase();
+        const snapshot = await db.collection(COLLECTION).get();
+        return snapshot.size;
     }
 }
 

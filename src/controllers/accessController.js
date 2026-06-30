@@ -1,124 +1,126 @@
 /**
- * Controller xử lý API quét mã QR kiểm soát ra vào
+ * Controller xử lý các API liên quan đến Access Logs (Ra/Vào)
  * 
- * API:
- * POST /api/access/scan - Ghi nhận lượt quét QR ra/vào thư viện
+ * Các API:
+ * 1. POST /api/access/scan   - Quét QR, ghi log ra/vào
+ * 2. GET  /api/access/history/:user_id - Lấy lịch sử ra vào của user
  */
 
-const User = require('../models/User');
 const AccessLog = require('../models/AccessLog');
+const User = require('../models/User');
 
 /**
  * POST /api/access/scan
+ * Quét mã QR → tìm user → ghi log ra/vào
  * 
- * Mô tả: Xử lý dữ liệu từ máy quét QR.
- * Kiểm tra library_code tồn tại, sau đó ghi log ra/vào.
- * 
- * Body: { library_code, device_id }
- * 
- * Response thành công (200):
- * {
- *   status: "success",
- *   message: "Đã ghi nhận ra vào thành công",
- *   user_name: "Nguyễn Văn A"
- * }
+ * Request body:
+ *   - library_code: string
+ *   - device_id: string (VD: GATE-001, GATE-002, ADMIN_PHONE)
  */
-async function scan(req, res, next) {
+async function scanQR(req, res, next) {
     try {
         const { library_code, device_id } = req.body;
 
-        // --- Validate đầu vào ---
         if (!library_code || !device_id) {
             return res.status(400).json({
-                status: 'error',
-                message: 'Thiếu thông tin: library_code và device_id là bắt buộc'
+                success: false,
+                error: 'Vui lòng cung cấp library_code và device_id'
             });
         }
 
-        // --- Kiểm tra library_code có tồn tại trong bảng Users không ---
+        // 1. Tìm user theo library_code
         const user = await User.findByLibraryCode(library_code);
         if (!user) {
             return res.status(404).json({
-                status: 'error',
-                message: 'Mã QR không hợp lệ'
+                success: false,
+                error: 'Không tìm thấy người dùng với mã QR này'
             });
         }
 
-        // --- Ghi log ra/vào ---
-        await AccessLog.create({
+        // 2. Xác định loại log (Vào/Ra)
+        // Lấy log gần nhất của user
+        const latestLog = await AccessLog.getLatestLogByUserId(user.id);
+        
+        let logType;
+        if (!latestLog) {
+            // Chưa có log nào → mặc định là "Vào"
+            logType = 'Vào';
+        } else {
+            // Nếu log gần nhất là "Vào" → lần này là "Ra"
+            // Nếu log gần nhất là "Ra" → lần này là "Vào"
+            logType = latestLog.type === 'Vào' ? 'Ra' : 'Vào';
+        }
+
+        // 3. Tạo log mới
+        const log = await AccessLog.create({
             user_id: user.id,
-            device_id: device_id
+            user_name: user.full_name,
+            device_id: device_id,
+            type: logType
         });
 
-        // --- Trả về kết quả thành công ---
+        console.log(`[Scan] ${user.full_name} (${library_code}) → ${device_id} [${logType}]`);
+
+        // 4. Trả về kết quả
         res.status(200).json({
-            status: 'success',
-            message: 'Đã ghi nhận ra vào thành công',
-            user_name: user.full_name
+            success: true,
+            message: logType === 'Vào' ? 'Chào mừng bạn vào thư viện!' : 'Tạm biệt! Hẹn gặp lại',
+            data: {
+                log: log,
+                user: {
+                    id: user.id,
+                    full_name: user.full_name,
+                    library_code: user.library_code,
+                    class_name: user.class_name,
+                    action: logType
+                }
+            }
         });
 
     } catch (err) {
-        console.error('[AccessScan Error]', err.message);
+        console.error('[Scan Error]', err.message);
         next(err);
     }
 }
 
 /**
  * GET /api/access/history/:user_id
- * 
- * Mô tả: Lấy lịch sử ra vào của một người dùng.
- * Trả về mảng các bản ghi sắp xếp theo thời gian mới nhất.
- * 
- * Params: user_id - ID của người dùng
- * 
- * Response thành công (200):
- * {
- *   status: "success",
- *   data: [
- *     {
- *       log_id: 1,
- *       timestamp: "2026-06-29 07:30:00",
- *       device_id: "GATE-001",
- *       device_type: "entry"
- *     },
- *     ...
- *   ]
- * }
+ * Lấy lịch sử ra vào của user
  */
 async function getHistory(req, res, next) {
     try {
         const { user_id } = req.params;
-
-        // --- Validate user_id ---
-        const userId = parseInt(user_id, 10);
-        if (isNaN(userId)) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'ID người dùng không hợp lệ'
-            });
+        
+        // Firestore dùng string ID
+        if (!user_id || typeof user_id !== 'string') {
+            return res.status(400).json({ success: false, error: 'ID người dùng không hợp lệ' });
         }
 
-        // --- Kiểm tra user có tồn tại không ---
-        const user = await User.findById(userId);
+        // Kiểm tra user tồn tại
+        const user = await User.findById(user_id);
         if (!user) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Người dùng không tồn tại'
-            });
+            return res.status(404).json({ success: false, error: 'Không tìm thấy người dùng' });
         }
 
-        // --- Lấy danh sách lịch sử ra vào ---
-        const logs = await AccessLog.findByUserId(userId);
+        // Lấy logs
+        const logs = await AccessLog.findByUserId(user_id);
 
         res.status(200).json({
-            status: 'success',
-            data: logs
+            success: true,
+            data: {
+                user: {
+                    id: user.id,
+                    full_name: user.full_name,
+                    library_code: user.library_code
+                },
+                logs: logs
+            }
         });
 
     } catch (err) {
-        console.error('[AccessHistory Error]', err.message);
+        console.error('[GetHistory Error]', err.message);
         next(err);
     }
 }
 
-module.exports = { scan, getHistory };
+module.exports = { scanQR, getHistory };

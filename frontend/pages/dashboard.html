@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Thẻ thư viện - VTS</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 420px;
+            min-height: 100vh;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dash-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 24px 20px 60px;
+            position: relative;
+        }
+
+        .dash-header .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .dash-header .top-bar .app-title {
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        .dash-header .top-bar .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .dash-header .top-bar .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .dash-header .user-greeting {
+            font-size: 13px;
+            opacity: 0.85;
+            margin-bottom: 2px;
+        }
+
+        .dash-header .user-name {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .qr-card {
+            background: white;
+            border-radius: 24px 24px 0 0;
+            margin-top: -40px;
+            padding: 28px 24px 24px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .qr-card .library-label {
+            font-size: 13px;
+            color: #9ca3af;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .qr-card .library-code {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .qr-wrapper {
+            background: white;
+            border-radius: 20px;
+            padding: 16px;
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15);
+            border: 3px solid #f3f4f6;
+            margin-bottom: 8px;
+            width: fit-content;
+        }
+
+        .qr-wrapper canvas, .qr-wrapper img {
+            display: block !important;
+            width: 220px !important;
+            height: 220px !important;
+        }
+
+        .qr-hint {
+            font-size: 13px;
+            color: #6b7280;
+            text-align: center;
+            margin-top: 8px;
+            padding: 0 20px;
+            line-height: 1.5;
+        }
+
+        .user-details {
+            width: 100%;
+            margin-top: 20px;
+            background: #f9fafb;
+            border-radius: 16px;
+            padding: 16px 20px;
+        }
+
+        .user-details .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .user-details .row:last-child {
+            border-bottom: none;
+        }
+
+        .user-details .row .label {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .user-details .row .value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1a1a2e;
+            text-align: right;
+        }
+
+        .bottom-nav {
+            display: flex;
+            border-top: 1px solid #f3f4f6;
+            background: white;
+            padding: 8px 0;
+            position: sticky;
+            bottom: 0;
+        }
+
+        .bottom-nav a {
+            flex: 1;
+            text-align: center;
+            padding: 8px 4px;
+            text-decoration: none;
+            color: #9ca3af;
+            font-size: 11px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .bottom-nav a.active {
+            color: #667eea;
+        }
+
+        .bottom-nav a .icon {
+            font-size: 22px;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+        }
+
+        .loading-state .spinner-large {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #e5e7eb;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-state p { color: #6b7280; font-size: 14px; }
+
+        .error-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .error-state .icon { font-size: 56px; margin-bottom: 12px; }
+        .error-state h2 { font-size: 18px; color: #1a1a2e; margin-bottom: 4px; }
+        .error-state p { font-size: 14px; color: #6b7280; margin-bottom: 20px; }
+
+        @media (min-width: 421px) {
+            .dashboard {
+                border-radius: 24px;
+                min-height: auto;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                margin: 20px;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .qr-wrapper canvas, .qr-wrapper img { width: 180px !important; height: 180px !important; }
+            .qr-card .library-code { font-size: 22px; }
+            .dash-header { padding: 20px 16px 50px; }
+            .dash-header .user-name { font-size: 19px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard" id="app">
+        <!-- Loading -->
+        <div id="loadingState" class="loading-state">
+            <div class="spinner-large"></div>
+            <p>Đang tải thông tin...</p>
+        </div>
+
+        <!-- Chưa đăng nhập -->
+        <div id="loginPrompt" class="error-state" style="display: none;">
+            <div class="icon">🔑</div>
+            <h2>Chưa đăng nhập</h2>
+            <p>Vui lòng đăng nhập để xem mã QR thẻ thư viện</p>
+            <a href="login.html" class="btn btn-primary"
+               style="display: inline-block; width: auto; padding: 12px 40px; text-decoration: none;">
+                Đăng nhập ngay
+            </a>
+        </div>
+
+        <!-- Lỗi -->
+        <div id="errorState" class="error-state" style="display: none;">
+            <div class="icon">⚠️</div>
+            <h2>Có lỗi xảy ra</h2>
+            <p id="errorMessage">Không thể tải thông tin người dùng</p>
+            <button onclick="location.reload()" class="btn btn-primary"
+                    style="display: inline-block; width: auto; padding: 12px 32px;">🔄 Thử lại</button>
+        </div>
+
+        <!-- Dashboard content -->
+        <div id="dashboardContent" style="display: none;">
+            <div class="dash-header">
+                <div class="top-bar">
+                    <span class="app-title">📚 Thư viện VTS</span>
+                    <button class="logout-btn" onclick="handleLogout()">Đăng xuất</button>
+                </div>
+                <div class="user-greeting">Xin chào,</div>
+                <div class="user-name" id="userName">---</div>
+            </div>
+
+            <div class="qr-card">
+                <div class="library-label">MÃ THẺ THƯ VIỆN</div>
+                <div class="library-code" id="libraryCode">---</div>
+
+                <div class="qr-wrapper" id="qrWrapper">
+                    <div id="qrcode"></div>
+                </div>
+
+                <div class="qr-hint">
+                    📱 Đưa mã QR này cho Admin hoặc máy quét tại cổng để ra vào thư viện
+                </div>
+
+                <div class="user-details">
+                    <div class="row">
+                        <span class="label">Họ và tên</span>
+                        <span class="value" id="detailName">---</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Email</span>
+                        <span class="value" id="detailEmail">---</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Số điện thoại</span>
+                        <span class="value" id="detailPhone">---</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Ngày tạo</span>
+                        <span class="value" id="detailCreated">---</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom nav: Student có Thẻ QR, Admin thì ẩn -->
+            <div class="bottom-nav" id="bottomNav">
+                <a href="dashboard.html" class="nav-qr active">
+                    <span class="icon">🎫</span>
+                    Thẻ QR
+                </a>
+                <a href="history.html">
+                    <span class="icon">📋</span>
+                    Lịch sử
+                </a>
+                <a href="login.html">
+                    <span class="icon">👤</span>
+                    Tài khoản
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="../lib/api.js"></script>
+    <script>
+        // ===== KIỂM TRA PHÂN QUYỀN: Nếu là admin → đá sang admin-scan =====
+        (function() {
+            const userData = localStorage.getItem('currentUser');
+            if (userData) {
+                const user = JSON.parse(userData);
+                if (user.role === 'admin') {
+                    window.location.replace('admin-scan.html');
+                    return;
+                }
+            }
+        })();
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '---';
+            const d = new Date(dateStr.replace(' ', 'T'));
+            const day = d.getDate().toString().padStart(2, '0');
+            const month = (d.getMonth() + 1).toString().padStart(2, '0');
+            const year = d.getFullYear();
+            const hour = d.getHours().toString().padStart(2, '0');
+            const min = d.getMinutes().toString().padStart(2, '0');
+            return `${day}/${month}/${year} ${hour}:${min}`;
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('currentUser');
+            window.location.href = 'login.html';
+        }
+
+        async function initDashboard() {
+            const loadingState = document.getElementById('loadingState');
+            const loginPrompt = document.getElementById('loginPrompt');
+            const errorState = document.getElementById('errorState');
+            const errorMessage = document.getElementById('errorMessage');
+            const dashboardContent = document.getElementById('dashboardContent');
+
+            const userData = localStorage.getItem('currentUser');
+            if (!userData) {
+                loadingState.style.display = 'none';
+                loginPrompt.style.display = 'block';
+                return;
+            }
+
+            const localUser = JSON.parse(userData);
+
+            try {
+                const result = await apiGet(`/users/profile/${localUser.id}`);
+                const user = result.data.user;
+
+                document.getElementById('userName').textContent = user.full_name;
+                document.getElementById('libraryCode').textContent = user.library_code;
+                document.getElementById('detailName').textContent = user.full_name;
+                document.getElementById('detailEmail').textContent = user.email;
+                document.getElementById('detailPhone').textContent = user.phone_number;
+                document.getElementById('detailCreated').textContent = formatDate(user.created_at);
+
+                const qrContainer = document.getElementById('qrcode');
+                qrContainer.innerHTML = '';
+                new QRCode(qrContainer, {
+                    text: user.library_code,
+                    width: 220, height: 220,
+                    colorDark: '#1a1a2e', colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+
+                loadingState.style.display = 'none';
+                dashboardContent.style.display = 'flex';
+                dashboardContent.style.flexDirection = 'column';
+
+            } catch (err) {
+                console.warn('API error, dùng localStorage:', err.message);
+                if (localUser) {
+                    document.getElementById('userName').textContent = localUser.full_name || '---';
+                    document.getElementById('libraryCode').textContent = localUser.library_code || '---';
+                    document.getElementById('detailName').textContent = localUser.full_name || '---';
+                    document.getElementById('detailEmail').textContent = localUser.email || '---';
+                    document.getElementById('detailPhone').textContent = localUser.phone_number || '---';
+                    document.getElementById('detailCreated').textContent = '---';
+
+                    const qrContainer = document.getElementById('qrcode');
+                    qrContainer.innerHTML = '';
+                    new QRCode(qrContainer, {
+                        text: localUser.library_code,
+                        width: 220, height: 220,
+                        colorDark: '#1a1a2e', colorLight: '#ffffff',
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+
+                    loadingState.style.display = 'none';
+                    dashboardContent.style.display = 'flex';
+                    dashboardContent.style.flexDirection = 'column';
+                } else {
+                    loadingState.style.display = 'none';
+                    errorState.style.display = 'block';
+                    errorMessage.textContent = err.message || 'Không thể tải thông tin';
+                }
+            }
+        }
+
+        // ===== ẨN TAB "THẺ QR" NẾU LÀ ADMIN =====
+        (function hideQRForAdmin() {
+            const userData = localStorage.getItem('currentUser');
+            if (userData) {
+                const user = JSON.parse(userData);
+                if (user.role === 'admin') {
+                    const qrTab = document.querySelector('.nav-qr');
+                    if (qrTab) qrTab.style.display = 'none';
+                }
+            }
+        })();
+
+        document.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+</html>

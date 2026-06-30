@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thẻ thư viện - VTS</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <!-- Thư viện tạo mã QR từ CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+    <div class="card">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">🎫</div>
+            <h1>Thẻ thư viện</h1>
+            <p>Mã QR cá nhân để ra vào thư viện</p>
+        </div>
+
+        <!-- Navigation tabs -->
+        <div class="nav-tabs">
+            <a href="../index.html" class="tab">🏠 Trang chủ</a>
+            <a href="scan.html" class="tab">📷 Quét QR</a>
+            <a href="login.html" class="tab">🔑 Đăng nhập</a>
+            <a href="history.html" class="tab">📋 Lịch sử</a>
+        </div>
+
+        <!-- Chưa đăng nhập -->
+        <div id="notLoggedIn" class="hidden">
+            <div class="alert alert-info show" style="display: block;">
+                Vui lòng <a href="login.html" style="font-weight: 600;">đăng nhập</a> để xem mã QR thẻ thư viện.
+            </div>
+            <div style="text-align: center; margin-top: 16px;">
+                <a href="login.html" class="btn btn-primary" style="display: inline-block; width: auto; padding: 12px 32px;">
+                    🔑 Đăng nhập ngay
+                </a>
+            </div>
+        </div>
+
+        <!-- Thông tin user + QR -->
+        <div id="userProfile" class="hidden">
+            <div class="user-info">
+                <div class="name" id="displayName">---</div>
+                <div class="detail" id="displayEmail">---</div>
+                <div class="detail" id="displayPhone">---</div>
+                <div class="library-code" id="displayLibraryCode">---</div>
+            </div>
+
+            <!-- QR Code -->
+            <div class="qr-container">
+                <div id="qrcode"></div>
+                <div class="qr-label" id="qrLabel">Đang tạo mã QR...</div>
+            </div>
+
+            <!-- Actions -->
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" onclick="window.location.href='history.html'" style="flex: 1;">
+                    📋 Lịch sử
+                </button>
+                <button class="btn btn-danger" onclick="handleLogout()" style="flex: 1;">
+                    🚪 Đăng xuất
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer-links" style="margin-top: 20px;">
+            <p><a href="../index.html">← Quay lại trang chủ</a></p>
+        </div>
+    </div>
+
+    <script src="../lib/api.js"></script>
+    <script>
+        /**
+         * Hiển thị thông tin user và tạo mã QR
+         * Dùng localStorage để đồng bộ với trang login
+         */
+        function loadProfile() {
+            const userData = localStorage.getItem('currentUser');
+            
+            if (!userData) {
+                document.getElementById('notLoggedIn').classList.remove('hidden');
+                document.getElementById('userProfile').classList.add('hidden');
+                return;
+            }
+
+            const user = JSON.parse(userData);
+            
+            // Hiển thị thông tin
+            document.getElementById('displayName').textContent = user.full_name;
+            document.getElementById('displayEmail').textContent = `📧 ${user.email}`;
+            document.getElementById('displayPhone').textContent = `📞 ${user.phone_number}`;
+            document.getElementById('displayLibraryCode').textContent = `Mã thẻ: ${user.library_code}`;
+            document.getElementById('qrLabel').textContent = `Mã QR - ${user.library_code}`;
+
+            document.getElementById('notLoggedIn').classList.add('hidden');
+            document.getElementById('userProfile').classList.remove('hidden');
+
+            // Tạo mã QR từ library_code
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+
+            new QRCode(qrContainer, {
+                text: user.library_code,
+                width: 200,
+                height: 200,
+                colorDark: '#1a1a2e',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        /**
+         * Đăng xuất: xóa khỏi localStorage và chuyển về login
+         */
+        function handleLogout() {
+            localStorage.removeItem('currentUser');
+            window.location.href = 'login.html';
+        }
+
+        // Load khi trang sẵn sàng
+        document.addEventListener('DOMContentLoaded', loadProfile);
+    </script>
+</body>
+</html>

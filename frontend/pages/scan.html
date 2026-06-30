@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quét mã QR - Thư viện VTS</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div class="card card-wide">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">📷</div>
+            <h1>Quét mã QR</h1>
+            <p>Nhập mã thẻ thư viện để kiểm soát ra vào</p>
+        </div>
+
+        <!-- Navigation tabs -->
+        <div class="nav-tabs">
+            <a href="../index.html" class="tab">🏠 Trang chủ</a>
+            <a href="scan.html" class="tab active">📷 Quét QR</a>
+            <a href="login.html" class="tab">🔑 Đăng nhập</a>
+            <a href="history.html" class="tab">📋 Lịch sử</a>
+        </div>
+
+        <!-- Scan form -->
+        <form id="scanForm" onsubmit="handleScan(event)">
+            <div class="form-group">
+                <label for="library_code">Mã thẻ thư viện (library_code)</label>
+                <input type="text" id="library_code" name="library_code" 
+                       placeholder="VD: LIB-001 hoặc mã QR" 
+                       required autofocus
+                       style="text-transform: uppercase; font-size: 18px; letter-spacing: 1px; text-align: center;">
+            </div>
+
+            <div class="form-group">
+                <label for="device_id">Thiết bị (cổng)</label>
+                <select id="device_id" name="device_id" required>
+                    <option value="">-- Chọn cổng --</option>
+                    <option value="GATE-001">Cổng vào (GATE-001)</option>
+                    <option value="GATE-002">Cổng ra (GATE-002)</option>
+                    <option value="GATE-003">Cổng chính (GATE-003)</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="scanBtn">
+                📷 Quét mã
+            </button>
+        </form>
+
+        <!-- Alert -->
+        <div id="alert" class="alert"></div>
+
+        <!-- Scan result -->
+        <div id="scanResult" class="scan-result hidden">
+            <div id="statusIcon" class="status-icon"></div>
+            <div id="statusText" class="status-text"></div>
+            <div id="statusSub" class="status-sub"></div>
+        </div>
+    </div>
+
+    <script src="../lib/api.js"></script>
+    <script>
+        // ===== KIỂM TRA PHÂN QUYỀN: Student không được vào scan.html =====
+        (function() {
+            const userData = localStorage.getItem('currentUser');
+            if (userData) {
+                const user = JSON.parse(userData);
+                if (user.role === 'student') {
+                    alert('Bạn không có quyền truy cập tính năng này!');
+                    window.location.replace('dashboard.html');
+                    return;
+                }
+            }
+        })();
+
+        async function handleScan(event) {
+            event.preventDefault();
+
+            const library_code = document.getElementById('library_code').value.trim().toUpperCase();
+            const device_id = document.getElementById('device_id').value;
+            const btn = document.getElementById('scanBtn');
+            const alert = document.getElementById('alert');
+            const scanResult = document.getElementById('scanResult');
+
+            // Ẩn kết quả cũ
+            scanResult.classList.add('hidden');
+            alert.classList.remove('show', 'alert-success', 'alert-error');
+
+            // Validate
+            if (!library_code) {
+                alert.textContent = 'Vui lòng nhập mã thẻ thư viện';
+                alert.className = 'alert alert-error show';
+                document.getElementById('library_code').focus();
+                return;
+            }
+
+            if (!device_id) {
+                alert.textContent = 'Vui lòng chọn thiết bị/cổng';
+                alert.className = 'alert alert-error show';
+                return;
+            }
+
+            // Loading
+            btn.disabled = true;
+            btn.textContent = 'Đang xử lý...';
+
+            try {
+                const result = await apiPost('/access/scan', {
+                    library_code,
+                    device_id
+                });
+
+                // Hiển thị kết quả thành công
+                scanResult.classList.remove('hidden');
+                document.getElementById('statusIcon').className = 'status-icon success';
+                document.getElementById('statusIcon').textContent = '✅';
+                document.getElementById('statusText').textContent = result.message;
+                document.getElementById('statusSub').textContent = `👤 ${result.user_name}`;
+
+                // Xóa input để quét tiếp
+                document.getElementById('library_code').value = '';
+                document.getElementById('library_code').focus();
+
+            } catch (err) {
+                // Hiển thị lỗi
+                scanResult.classList.remove('hidden');
+                document.getElementById('statusIcon').className = 'status-icon error';
+                document.getElementById('statusIcon').textContent = '❌';
+                document.getElementById('statusText').textContent = err.message || 'Quét mã thất bại';
+                document.getElementById('statusSub').textContent = 'Vui lòng thử lại';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📷 Quét mã';
+            }
+        }
+    </script>
+</body>
+</html>

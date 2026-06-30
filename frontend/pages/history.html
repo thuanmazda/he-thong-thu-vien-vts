@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lịch sử ra vào - Thư viện VTS</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        /* --- Tối ưu riêng cho trang Lịch sử --- */
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .history-page {
+            width: 100%;
+            max-width: 420px;
+            min-height: 100vh;
+            background: #f8f9fc;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header --- */
+        .hdr {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px 20px 24px;
+        }
+
+        .hdr .top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .hdr .top-row .back-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .hdr .top-row .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .hdr .top-row .hdr-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .hdr .top-row .hdr-action {
+            width: 36px;
+        }
+
+        .hdr .user-summary {
+            text-align: center;
+        }
+
+        .hdr .user-summary .name {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .hdr .user-summary .meta {
+            font-size: 13px;
+            opacity: 0.85;
+            margin-top: 4px;
+        }
+
+        .hdr .user-summary .total-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            padding: 4px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 8px;
+        }
+
+        /* --- Filter tabs --- */
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            padding: 12px 20px;
+            background: white;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .filter-bar .filter-btn {
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid #e5e7eb;
+            background: white;
+            font-size: 13px;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .filter-bar .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .filter-bar .filter-btn:hover:not(.active) {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        /* --- Danh sách lịch sử --- */
+        .list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 16px;
+        }
+
+        .list-container .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .list-container .empty-state .icon {
+            font-size: 56px;
+            margin-bottom: 12px;
+        }
+
+        .list-container .empty-state h3 {
+            font-size: 18px;
+            color: #1a1a2e;
+            margin-bottom: 4px;
+        }
+
+        .list-container .empty-state p {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        /* --- Mỗi item lịch sử --- */
+        .history-item {
+            background: white;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: transform 0.1s;
+        }
+
+        .history-item:active {
+            transform: scale(0.98);
+        }
+
+        .history-item .icon-box {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .history-item .icon-box.entry {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .history-item .icon-box.exit {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .history-item .info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .history-item .info .action {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1a1a2e;
+        }
+
+        .history-item .info .device {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
+        .history-item .info .device code {
+            background: #f3f4f6;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+
+        .history-item .time {
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .history-item .time .date {
+            font-size: 12px;
+            color: #9ca3af;
+            white-space: nowrap;
+        }
+
+        .history-item .time .clock {
+            font-size: 11px;
+            color: #d1d5db;
+            margin-top: 2px;
+        }
+
+        /* --- Loading & Error --- */
+        .list-container .loading-box {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .list-container .loading-box .spinner {
+            width: 36px;
+            height: 36px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .list-container .loading-box p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .list-container .error-box {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .list-container .error-box .icon {
+            font-size: 48px;
+            margin-bottom: 8px;
+        }
+
+        .list-container .error-box p {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        /* --- Bottom nav --- */
+        .bottom-nav {
+            display: flex;
+            border-top: 1px solid #f3f4f6;
+            background: white;
+            padding: 8px 0;
+            position: sticky;
+            bottom: 0;
+        }
+
+        .bottom-nav a {
+            flex: 1;
+            text-align: center;
+            padding: 8px 4px;
+            text-decoration: none;
+            color: #9ca3af;
+            font-size: 11px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .bottom-nav a.active {
+            color: #667eea;
+        }
+
+        .bottom-nav a .icon {
+            font-size: 22px;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        @media (min-width: 421px) {
+            .history-page {
+                border-radius: 24px;
+                min-height: auto;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                margin: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="history-page" id="app">
+        <!-- Header -->
+        <div class="hdr">
+            <div class="top-row">
+                <a href="../index.html" class="back-btn">←</a>
+                <span class="hdr-title">📋 Lịch sử ra vào</span>
+                <div class="hdr-action"></div>
+            </div>
+            <div class="user-summary">
+                <div class="name" id="userName">---</div>
+                <div class="meta" id="userMeta">Mã thẻ: ---</div>
+                <div class="total-badge" id="totalBadge">📊 Tổng: 0 lượt</div>
+            </div>
+        </div>
+
+        <!-- Filter -->
+        <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all" onclick="applyFilter('all')">Tất cả</button>
+            <button class="filter-btn" data-filter="entry" onclick="applyFilter('entry')">🚪 Vào</button>
+            <button class="filter-btn" data-filter="exit" onclick="applyFilter('exit')">🚶 Ra</button>
+        </div>
+
+        <!-- Danh sách -->
+        <div class="list-container" id="listContainer">
+            <!-- Loading state -->
+            <div id="loadingState" class="loading-box">
+                <div class="spinner"></div>
+                <p>Đang tải lịch sử...</p>
+            </div>
+
+            <!-- Error state -->
+            <div id="errorState" class="error-box" style="display: none;">
+                <div class="icon">⚠️</div>
+                <p id="errorMessage">Không thể tải dữ liệu</p>
+                <button onclick="location.reload()" class="btn btn-primary" style="width: auto; padding: 10px 28px; display: inline-block;">
+                    🔄 Thử lại
+                </button>
+            </div>
+
+            <!-- Empty state -->
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="icon">📭</div>
+                <h3>Chưa có dữ liệu</h3>
+                <p>Bạn chưa có lịch sử ra vào thư viện</p>
+            </div>
+
+            <!-- Danh sách items -->
+            <div id="historyList"></div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <a href="../index.html">
+                <span class="icon">🎫</span>
+                Thẻ QR
+            </a>
+            <a href="scan.html">
+                <span class="icon">📷</span>
+                Quét mã
+            </a>
+            <a href="history.html" class="active">
+                <span class="icon">📋</span>
+                Lịch sử
+            </a>
+            <a href="login.html">
+                <span class="icon">👤</span>
+                Tài khoản
+            </a>
+        </div>
+    </div>
+
+    <script src="../lib/api.js"></script>
+    <script>
+        // ===== GẮN BOTTOM NAV LINH HOẠT THEO ROLE =====
+        (function renderNav() {
+            const userData = localStorage.getItem('currentUser');
+            const isAdmin = userData ? JSON.parse(userData).role === 'admin' : false;
+
+            // Nếu là admin → chuyển hướng về admin-scan
+            if (isAdmin) {
+                // Vẫn cho xem lịch sử, nhưng đổi link "Quét mã" về admin-scan
+                document.querySelectorAll('.bottom-nav a').forEach(a => {
+                    if (a.textContent.includes('Quét')) {
+                        a.href = 'admin-scan.html';
+                    }
+                });
+            } else {
+                // Nếu là student → ẩn nút "Quét mã"
+                document.querySelectorAll('.bottom-nav a').forEach(a => {
+                    if (a.textContent.includes('Quét')) {
+                        a.style.display = 'none';
+                    }
+                });
+            }
+        })();
+
+        // --- Dữ liệu gốc lưu lại để filter ---
+        let allLogs = [];
+        let currentFilter = 'all';
+
+        /**
+         * Format datetime: "DD/MM/YYYY HH:mm:ss"
+         */
+        function formatFullDate(timestamp) {
+            if (!timestamp) return { date: '---', time: '---' };
+            const d = new Date(timestamp.replace(' ', 'T'));
+            const day = d.getDate().toString().padStart(2, '0');
+            const month = (d.getMonth() + 1).toString().padStart(2, '0');
+            const year = d.getFullYear();
+            const hour = d.getHours().toString().padStart(2, '0');
+            const min = d.getMinutes().toString().padStart(2, '0');
+            const sec = d.getSeconds().toString().padStart(2, '0');
+            return {
+                date: `${day}/${month}/${year}`,
+                time: `${hour}:${min}:${sec}`
+            };
+        }
+
+        /**
+         * Lấy tên thiết bị
+         */
+        function getDeviceLabel(deviceId) {
+            const names = {
+                'GATE-001': 'Cổng vào',
+                'GATE-002': 'Cổng ra',
+                'GATE-003': 'Cổng chính'
+            };
+            return names[deviceId] || deviceId;
+        }
+
+        /**
+         * Render danh sách lịch sử
+         */
+        function renderLogs(logs) {
+            const container = document.getElementById('historyList');
+            const emptyState = document.getElementById('emptyState');
+
+            if (logs.length === 0) {
+                container.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            container.innerHTML = logs.map(log => {
+                const isEntry = log.device_type === 'entry';
+                const icon = isEntry ? '🚪' : '🚶';
+                const actionText = isEntry ? 'Vào thư viện' : 'Rời thư viện';
+                const iconClass = isEntry ? 'entry' : 'exit';
+                const deviceLabel = getDeviceLabel(log.device_id);
+                const fmt = formatFullDate(log.timestamp);
+
+                return `
+                    <div class="history-item">
+                        <div class="icon-box ${iconClass}">${icon}</div>
+                        <div class="info">
+                            <div class="action">${actionText}</div>
+                            <div class="device">
+                                ${deviceLabel} <code>${log.device_id}</code>
+                            </div>
+                        </div>
+                        <div class="time">
+                            <div class="date">${fmt.date}</div>
+                            <div class="clock">${fmt.time}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /**
+         * Áp dụng bộ lọc (Tất cả / Vào / Ra)
+         */
+        function applyFilter(filter) {
+            currentFilter = filter;
+
+            // Cập nhật UI active tab
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.filter === filter);
+            });
+
+            // Lọc dữ liệu
+            let filtered = allLogs;
+            if (filter === 'entry') {
+                filtered = allLogs.filter(log => log.device_type === 'entry');
+            } else if (filter === 'exit') {
+                filtered = allLogs.filter(log => log.device_type === 'exit');
+            }
+
+            renderLogs(filtered);
+        }
+
+        /**
+         * Tải lịch sử từ API
+         */
+        async function loadHistory() {
+            const loadingState = document.getElementById('loadingState');
+            const errorState = document.getElementById('errorState');
+            const errorMessage = document.getElementById('errorMessage');
+            const historyList = document.getElementById('historyList');
+            const emptyState = document.getElementById('emptyState');
+
+            // --- Kiểm tra đăng nhập ---
+            const userData = localStorage.getItem('currentUser');
+            if (!userData) {
+                loadingState.style.display = 'none';
+                errorState.style.display = 'block';
+                errorMessage.textContent = 'Vui lòng đăng nhập để xem lịch sử';
+                return;
+            }
+
+            const user = JSON.parse(userData);
+
+            // --- Hiển thị thông tin user ---
+            document.getElementById('userName').textContent = user.full_name || '---';
+            document.getElementById('userMeta').textContent = `Mã thẻ: ${user.library_code || '---'}`;
+
+            // --- Gọi API ---
+            try {
+                const result = await apiGet(`/access/history/${user.id}`);
+                allLogs = result.data || [];
+
+                // Cập nhật tổng số
+                document.getElementById('totalBadge').textContent = `📊 Tổng: ${allLogs.length} lượt`;
+
+                // Ẩn loading, hiển thị danh sách
+                loadingState.style.display = 'none';
+                errorState.style.display = 'none';
+
+                // Render với filter hiện tại
+                applyFilter(currentFilter);
+
+            } catch (err) {
+                loadingState.style.display = 'none';
+                errorState.style.display = 'block';
+                errorMessage.textContent = err.message || 'Không thể tải lịch sử';
+                historyList.innerHTML = '';
+                emptyState.style.display = 'none';
+            }
+        }
+
+        // Khởi tạo khi trang load
+        document.addEventListener('DOMContentLoaded', loadHistory);
+    </script>
+</body>
+</html>
